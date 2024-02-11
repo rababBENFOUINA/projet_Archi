@@ -1,0 +1,5 @@
+train : D:\tst2\data\train\images
+val : D:\tst2\data\valid\images
+
+nc: 2
+names: ['Helmet' , 'NoHelmet']
