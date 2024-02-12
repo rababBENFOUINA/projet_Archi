@@ -1,0 +1,227 @@
+import cv2
+import time
+import os
+import shutil
+from ultralytics import YOLO
+import numpy as np
+import face_recognition
+import pickle
+
+import os
+import shutil
+
+# Définir la durée de la capture en secondes
+duree_capture = 10
+
+# Ouvrir la webcam (0 correspond à la webcam par défaut)
+cap = cv2.VideoCapture(0)
+
+# Vérifier si la webcam est ouverte correctement
+if not cap.isOpened():
+    print("Erreur: Impossible d'ouvrir la webcam.")
+    exit()
+
+# Spécifier le chemin complet du fichier vidéo
+nom_video = 'video_capture.avi'
+chemin_video = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\" + nom_video
+
+# Définir le codec et créer un objet VideoWriter pour enregistrer la vidéo
+codec = cv2.VideoWriter_fourcc(*'XVID')
+output = cv2.VideoWriter(chemin_video, codec, 20.0, (640, 480))
+
+# Capture de la vidéo pendant la durée spécifiée
+debut_capture = time.time()
+while time.time() - debut_capture < duree_capture:
+    # Lire une image de la webcam
+    ret, frame = cap.read()
+
+    # Vérifier si la lecture de l'image a réussi
+    if not ret:
+        print("Erreur: Impossible de lire l'image de la webcam.")
+        break
+
+    # Afficher l'image en direct (facultatif)
+    cv2.imshow('Video Capture', frame)
+
+    # Écrire l'image dans la vidéo de sortie
+    output.write(frame)
+
+    # Attendre 1 milliseconde et vérifier si l'utilisateur a appuyé sur la touche 'q' pour quitter
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+# Libérer les ressources
+cap.release()
+output.release()
+cv2.destroyAllWindows()
+
+
+#################################################################################
+##########################    division video   ##################################
+# Chemin vers la vidéo
+video_path = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\video_capture.avi"
+
+# Créer un dossier pour enregistrer les captures d'écran
+output_folder = 'captures_ecran'
+os.makedirs(output_folder, exist_ok=True)
+
+# Vider le contenu du répertoire "captures_ecran" s'il n'est pas vide
+if os.listdir(output_folder):
+    shutil.rmtree(output_folder)
+    os.makedirs(output_folder)
+
+# Ouvrir la vidéo
+cap = cv2.VideoCapture(video_path)
+
+# Obtenir la fréquence d'images par seconde (FPS) de la vidéo
+fps = cap.get(cv2.CAP_PROP_FPS)
+
+# Lire les images une par une
+frame_count = 0
+while True:
+    ret, frame = cap.read()
+
+    if not ret:
+        break
+
+    # Enregistrer une capture d'écran chaque seconde (ajustez selon vos besoins)
+    if frame_count % int(fps) == 0:
+        output_path = os.path.join(output_folder, f"capture_{frame_count // int(fps)}.png")
+        cv2.imwrite(output_path, frame)
+
+    frame_count += 1
+
+# Fermer la vidéo
+cap.release()
+
+
+#################################################################################
+##########################  detection helemt   ##################################
+
+# Modèle YOLO pour détecter les objets
+model = YOLO("C:\\Users\\HP\\Documents\\MIT\\Archi\\tstCodes\\code_projet_complet\\runs\\detect\\train\\weights\\best.pt")
+
+# Dossiers de sortie
+output_dir_with_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_avec_casque"
+output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_sans_casque"
+
+# Nettoyer le répertoire 'images_avec_casque'
+shutil.rmtree(output_dir_with_helmet, ignore_errors=True)
+os.makedirs(output_dir_with_helmet, exist_ok=True)
+
+# Nettoyer le répertoire 'images_sans_casque'
+shutil.rmtree(output_dir_without_helmet, ignore_errors=True)
+os.makedirs(output_dir_without_helmet, exist_ok=True)
+
+
+# Dossier source
+source_dir = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\captures_ecran"
+
+# Parcourir les images dans le dossier source
+for filename in os.listdir(source_dir):
+    img_path = os.path.join(source_dir, filename)
+
+    # Détecter les objets dans l'image
+    results_list = model(img_path, conf=0.4)
+    
+    # Supposez que 'results' est votre objet Results
+
+    # Parcourir la liste des résultats pour chaque image
+    for results in results_list:
+        # Assurez-vous que la liste des boîtes est présente dans les résultats
+        if hasattr(results, 'boxes'):
+            # Récupérer les noms des classes
+            class_names = results.names
+
+            # Obtenez les indices des classes détectées dans l'image
+            indices_classes_detectees = results.boxes.cls
+            indices_classes_detectees = indices_classes_detectees.numpy()
+            print(indices_classes_detectees)
+            
+            # Initialiser class_name en dehors de la condition
+            class_name = None
+            
+            if len(indices_classes_detectees) > 0:
+                # Obtenez le nom de la classe à partir de l'indice
+                class_index = int(indices_classes_detectees[0])
+                class_name = class_names[class_index]
+
+                # Utilisez le nom de la classe selon vos besoins
+                print("Nom de la classe :", class_name)
+            else:
+                print("Aucune classe détectée dans cette image.")
+
+
+            # Vérifier si la classe 'Helmet' est présente dans les résultats
+            if 'NoHelmet' == class_name:
+                # Si 'Helmet' n'est pas détecté, copier l'image dans le répertoire sans casque
+                shutil.copy(img_path, output_dir_without_helmet)
+            else:
+                # Si 'Helmet' est détecté, copier l'image dans le répertoire avec casque
+                shutil.copy(img_path, output_dir_with_helmet)
+        else:
+            print("Aucune boîte détectée pour l'image :", img_path)
+
+################################################################################################
+##########################  identifier personne sans casque   ##################################
+# Dossier source
+output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_sans_casque"
+
+# Charger les encodages depuis le fichier
+with open("encodings.pkl", "rb") as f:
+    encodeListKnown = pickle.load(f)
+
+# Ouvrir le fichier texte en mode écriture
+# Dossier source
+output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_sans_casque"
+
+# Charger les encodages depuis le fichier
+with open("encodings.pkl", "rb") as f:
+    encodeListKnown = pickle.load(f)
+
+# Ouvrir le fichier texte en mode écriture
+output_file_path = "resultats_detection.txt"
+with open(output_file_path, "w") as output_file:
+
+    # Parcourir les fichiers dans le dossier source
+    for filename in os.listdir(output_dir_without_helmet):
+        img_path = os.path.join(output_dir_without_helmet, filename)
+
+        # Lire une image
+        img = cv2.imread(img_path)
+
+        # Vérifier si l'image a été lue correctement
+        if img is not None:
+            imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
+            imgS = cv2.cvtColor(imgS, cv2.COLOR_BGR2RGB)
+
+            faceCurentFrame = face_recognition.face_locations(imgS)
+            encodeCurentFrame = face_recognition.face_encodings(imgS, faceCurentFrame)
+
+            for encodeface, faceLoc in zip(encodeCurentFrame, faceCurentFrame):
+                matches = face_recognition.compare_faces(encodeListKnown, encodeface)
+                faceDis = face_recognition.face_distance(encodeListKnown, encodeface)
+
+                if True in matches:
+                    matchIndex = np.argmin(faceDis)
+                    classNames = ['akhnoch', 'albert', 'Anas', 'Ayoub', 'Doha', 'Hanae Belmajdoub', 'mark', 'Nada', 'Nissrine', 'obama', 'Othmane', 'oualid', 'Rabab', 'Reham', 'Saadia', 'Salima', 'Yassir', 'ziyach']
+                    name = classNames[matchIndex].upper()
+
+                    # Écrire le nom dans le fichier texte
+                    output_file.write(f"Personne sans casque détectée : {name}\n")
+
+                    y1, x2, y2, x1 = faceLoc
+                    y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
+                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 0, 255), cv2.FILLED)
+                    cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
+                else:
+                    name = "Unknown"
+
+            cv2.imshow('Face Recognition', img)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
+    cv2.destroyAllWindows()
+
+print(f"Les résultats ont été enregistrés dans le fichier : {output_file_path}")
