@@ -29,7 +29,7 @@ while True:
 
         if True in matches:
             matchIndex = np.argmin(faceDis)
-            classNames =['akhnoch', 'albert', 'Anas', 'Ayoub', 'Doha', 'Hanae Belmajdoub', 'mark', 'Nada', 'Nissrine', 'obama', 'Othmane', 'oualid', 'Rabab', 'Reham', 'Saadia', 'Salima', 'Yassir', 'ziyach']
+            classNames = ['P1', 'P2', 'P3', 'p4', 'P5', 'P6', 'P7', 'P8', 'P9']
             name = classNames[matchIndex].upper()
 
             y1, x2, y2, x1 = faceLoc

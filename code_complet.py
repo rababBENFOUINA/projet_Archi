@@ -6,9 +6,20 @@ from ultralytics import YOLO
 import numpy as np
 import face_recognition
 import pickle
-
 import os
 import shutil
+from pymongo import MongoClient
+import yagmail
+
+
+# Remplacez 'mon_uri_de_connexion' par l'URI de connexion de votre base de données MongoDB
+#client = pymongo.MongoClient("mongodb://localhost:27017")
+connection_string = "mongodb+srv://rabab:rabab2002@archiapp.k4ms9yu.mongodb.net/?retryWrites=true&w=majority"
+client = MongoClient(connection_string)
+
+# Sélectionnez la base de données à utiliser (dans votre cas, "PrjArchi")
+db = client["PrjArchi"]
+
 
 # Définir la durée de la capture en secondes
 duree_capture = 10
@@ -164,16 +175,27 @@ for filename in os.listdir(source_dir):
 
 ################################################################################################
 ##########################  identifier personne sans casque   ##################################
-# Dossier source
-output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_sans_casque"
+personne = db["personne"]
 
-# Charger les encodages depuis le fichier
-with open("encodings.pkl", "rb") as f:
-    encodeListKnown = pickle.load(f)
+def recuperer_email_par_id(utilisateur_id):
+    utilisateur = personne.find_one({"_id": utilisateur_id})
+    if utilisateur:
+        return utilisateur.get("email")
+    else:
+        return None
 
-# Ouvrir le fichier texte en mode écriture
-# Dossier source
-output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_sans_casque"
+def envoyer_email(destinataire, sujet, corps_message):
+    smtp_username = "rababbenfina@gmail.com"
+    smtp_password = "ovrt ixvt hptt ukjv"
+
+    yag = yagmail.SMTP(smtp_username, smtp_password)
+    yag.send(destinataire, sujet, corps_message)
+    yag.close()
+
+
+
+################################################################################
+output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\captures_ecran"
 
 # Charger les encodages depuis le fichier
 with open("encodings.pkl", "rb") as f:
@@ -189,7 +211,7 @@ with open(output_file_path, "w") as output_file:
 
         # Lire une image
         img = cv2.imread(img_path)
-
+        
         # Vérifier si l'image a été lue correctement
         if img is not None:
             imgS = cv2.resize(img, (0, 0), None, 0.25, 0.25)
@@ -201,27 +223,51 @@ with open(output_file_path, "w") as output_file:
             for encodeface, faceLoc in zip(encodeCurentFrame, faceCurentFrame):
                 matches = face_recognition.compare_faces(encodeListKnown, encodeface)
                 faceDis = face_recognition.face_distance(encodeListKnown, encodeface)
-
+                
                 if True in matches:
                     matchIndex = np.argmin(faceDis)
-                    classNames = ['akhnoch', 'albert', 'Anas', 'Ayoub', 'Doha', 'Hanae Belmajdoub', 'mark', 'Nada', 'Nissrine', 'obama', 'Othmane', 'oualid', 'Rabab', 'Reham', 'Saadia', 'Salima', 'Yassir', 'ziyach']
-                    name = classNames[matchIndex].upper()
+                    classNames = ['P1', 'P2', 'P3', 'p4', 'P5', 'P6', 'P7', 'P8', 'P9']
+                    id = classNames[matchIndex].upper()
 
                     # Écrire le nom dans le fichier texte
-                    output_file.write(f"Personne sans casque détectée : {name}\n")
+                    output_file.write(f"Personne sans casque détectée : {id}\n")
+                    
+                
+                    # Sélectionnez la collection à utiliser (dans votre cas, "personnes_sans_casque")
+                    collection = db["personnes_sans_casque"]
+                    # Enregistrer dans la base de données MongoDB
+                    collection.insert_one({
+                        "id": id,
+                        "chemin_image": img_path,
+                        "timestamp": time.time()  # Vous pouvez utiliser une horodatage réelle ici
+                    })
+###############################################################################
+                    print(id)
+                    utilisateur_id = id  # Remplacez par l'ID de l'utilisateur que vous souhaitez
+                    email_destinataire = recuperer_email_par_id(utilisateur_id)
 
-                    y1, x2, y2, x1 = faceLoc
-                    y1, x2, y2, x1 = y1 * 4, x2 * 4, y2 * 4, x1 * 4
-                    cv2.rectangle(img, (x1, y1), (x2, y2), (0, 0, 255), 2)
-                    cv2.rectangle(img, (x1, y2 - 35), (x2, y2), (0, 0, 255), cv2.FILLED)
-                    cv2.putText(img, name, (x1 + 6, y2 - 6), cv2.FONT_HERSHEY_COMPLEX, 1, (255, 255, 255), 2)
-                else:
-                    name = "Unknown"
+                    personne = db["personne"]
+                    utilisateur = personne.find_one({"_id": utilisateur_id})
+                    
+                    if email_destinataire:
+                        sujet_email = "Alerte : Détection d'une personne sans casque de sécurité"
+                        corps_email = """
+                                    Cher(e) {} {},
 
-            cv2.imshow('Face Recognition', img)
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
+                                    Nous avons détecté que vous avez été capturé(e) par notre système de surveillance sans porter de casque de sécurité.
 
-    cv2.destroyAllWindows()
+                                    Détails de la détection :
+                                    - Identifiant de la personne : [ID de la personne]
+                                    - Date et heure de la détection : [Date et heure]
+                                    - Emplacement : [Emplacement]
 
-print(f"Les résultats ont été enregistrés dans le fichier : {output_file_path}")
+                                    Veuillez prendre les mesures nécessaires pour assurer votre sécurité et vous conformer aux règles de protection en portant un casque approprié dans la zone surveillée.
+
+                                    Cordialement
+                                    """.format(utilisateur.get("nom"),utilisateur.get("prenom"))
+
+
+                        envoyer_email(email_destinataire, sujet_email, corps_email)
+                        print(f"L'e-mail a été envoyé à {email_destinataire}")
+                    else:
+                        print(f"Aucun utilisateur trouvé avec l'ID {utilisateur_id}")
