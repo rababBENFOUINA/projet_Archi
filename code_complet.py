@@ -1,23 +1,21 @@
-import cv2
-import time
-import os
-import shutil
-from ultralytics import YOLO
-import numpy as np
-import face_recognition
-import pickle
-import os
-import shutil
-from pymongo import MongoClient
-import yagmail
+# Importation des bibliothèques nécessaires
+import cv2  # Bibliothèque OpenCV pour la vision par ordinateur
+import time  # Module pour gérer le temps dans le script
+import os  # Module pour interagir avec le système d'exploitation
+import shutil  # Module pour manipuler des fichiers et des répertoires
+from ultralytics import YOLO  # Importation du modèle YOLO pour la détection d'objets
+import numpy as np  # Bibliothèque pour les opérations mathématiques et numériques
+import face_recognition  # Bibliothèque de reconnaissance faciale
+import pickle  # Module pour sérialiser et désérialiser des objets Python
+from pymongo import MongoClient  # Importation du client MongoDB pour la base de données
+import yagmail  # Bibliothèque pour l'envoi de courriels
 
-
-# Remplacez 'mon_uri_de_connexion' par l'URI de connexion de votre base de données MongoDB
+# Connexion à la base de données MongoDB
 #client = pymongo.MongoClient("mongodb://localhost:27017")
 connection_string = "mongodb+srv://rabab:rabab2002@archiapp.k4ms9yu.mongodb.net/?retryWrites=true&w=majority"
 client = MongoClient(connection_string)
 
-# Sélectionnez la base de données à utiliser (dans votre cas, "PrjArchi")
+# Sélectionnez la base de données à utiliser
 db = client["PrjArchi"]
 
 
@@ -32,9 +30,9 @@ if not cap.isOpened():
     print("Erreur: Impossible d'ouvrir la webcam.")
     exit()
 
-# Spécifier le chemin complet du fichier vidéo
+# Spécifier le chemin  du fichier vidéo
 nom_video = 'video_capture.avi'
-chemin_video = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\" + nom_video
+chemin_video = nom_video
 
 # Définir le codec et créer un objet VideoWriter pour enregistrer la vidéo
 codec = cv2.VideoWriter_fourcc(*'XVID')
@@ -70,7 +68,7 @@ cv2.destroyAllWindows()
 #################################################################################
 ##########################    division video   ##################################
 # Chemin vers la vidéo
-video_path = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\video_capture.avi"
+video_path = "video_capture.avi"
 
 # Créer un dossier pour enregistrer les captures d'écran
 output_folder = 'captures_ecran'
@@ -95,7 +93,7 @@ while True:
     if not ret:
         break
 
-    # Enregistrer une capture d'écran chaque seconde (ajustez selon vos besoins)
+    # Enregistrer une capture d'écran chaque seconde 
     if frame_count % int(fps) == 0:
         output_path = os.path.join(output_folder, f"capture_{frame_count // int(fps)}.png")
         cv2.imwrite(output_path, frame)
@@ -110,11 +108,11 @@ cap.release()
 ##########################  detection helemt   ##################################
 
 # Modèle YOLO pour détecter les objets
-model = YOLO("C:\\Users\\HP\\Documents\\MIT\\Archi\\tstCodes\\code_projet_complet\\runs\\detect\\train\\weights\\best.pt")
+model = YOLO("best.pt")
 
 # Dossiers de sortie
-output_dir_with_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_avec_casque"
-output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\images_sans_casque"
+output_dir_with_helmet = "images_avec_casque"
+output_dir_without_helmet = "images_sans_casque"
 
 # Nettoyer le répertoire 'images_avec_casque'
 shutil.rmtree(output_dir_with_helmet, ignore_errors=True)
@@ -126,7 +124,7 @@ os.makedirs(output_dir_without_helmet, exist_ok=True)
 
 
 # Dossier source
-source_dir = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\captures_ecran"
+source_dir = "captures_ecran"
 
 # Parcourir les images dans le dossier source
 for filename in os.listdir(source_dir):
@@ -135,7 +133,6 @@ for filename in os.listdir(source_dir):
     # Détecter les objets dans l'image
     results_list = model(img_path, conf=0.4)
     
-    # Supposez que 'results' est votre objet Results
 
     # Parcourir la liste des résultats pour chaque image
     for results in results_list:
@@ -195,7 +192,6 @@ def envoyer_email(destinataire, sujet, corps_message):
 
 
 ################################################################################
-#output_dir_without_helmet = "C:\\Users\\HP\\Documents\\MIT\\Archi\\projet\\captures_ecran"
 
 # Charger les encodages depuis le fichier
 with open("encodings.pkl", "rb") as f:
